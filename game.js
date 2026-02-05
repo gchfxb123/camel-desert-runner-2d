@@ -6,177 +6,192 @@ function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
 }
-window.addEventListener("resize", resize);
 resize();
+window.addEventListener("resize", resize);
 
-/* ===== GAME STATE ===== */
+/* ------------------ 游戏状态 ------------------ */
 let running = true;
 let score = 0;
 let speed = 6;
-let gravity = 0.9;
 
-/* ===== PLAYER ===== */
+/* ------------------ 地面 ------------------ */
+const groundY = () => H * 0.75;
+
+/* ------------------ 骆驼（帧动画） ------------------ */
 const camel = {
   x: W * 0.2,
-  y: 0,
-  w: 90,
-  h: 60,
+  y: groundY() - 60,
+  w: 70,
+  h: 50,
   vy: 0,
-  onGround: false,
-  anim: 0
+  gravity: 1.1,
+  jumpPower: -18,
+  frame: 0,
+  frameTick: 0,
+  frameSpeed: 6,
+  onGround: true
 };
 
-/* ===== GROUND ===== */
-const groundY = () => H * 0.78;
+/* ------------------ 障碍 ------------------ */
+const obstacles = [];
 
-/* ===== OBSTACLES ===== */
-let obstacles = [];
-
-/* ===== INPUT ===== */
+/* ------------------ 输入 ------------------ */
 function jump() {
   if (camel.onGround) {
-    camel.vy = -18;
+    camel.vy = camel.jumpPower;
     camel.onGround = false;
   }
 }
+
 window.addEventListener("touchstart", jump);
 window.addEventListener("keydown", e => {
   if (e.code === "Space") jump();
 });
 
-/* ===== UI ===== */
-document.getElementById("pauseBtn").onclick = pauseGame;
+/* ------------------ UI ------------------ */
+const scoreEl = document.getElementById("score");
+const pauseBtn = document.getElementById("pauseBtn");
+const pauseMenu = document.getElementById("pauseMenu");
+const resumeBtn = document.getElementById("resumeBtn");
+const restartBtn = document.getElementById("restartBtn");
 
-function pauseGame() {
+pauseBtn.onclick = () => {
   running = false;
-  document.getElementById("pauseScreen").classList.remove("hidden");
-}
+  pauseMenu.classList.remove("hidden");
+};
 
-function resumeGame() {
+resumeBtn.onclick = () => {
   running = true;
-  document.getElementById("pauseScreen").classList.add("hidden");
-}
+  pauseMenu.classList.add("hidden");
+  loop();
+};
 
-function restartGame() {
+restartBtn.onclick = () => {
+  obstacles.length = 0;
   score = 0;
   speed = 6;
-  obstacles = [];
   camel.y = groundY() - camel.h;
   camel.vy = 0;
-  resumeGame();
-}
+  running = true;
+  pauseMenu.classList.add("hidden");
+  loop();
+};
 
-/* ===== SPAWN ===== */
+/* ------------------ 生成障碍 ------------------ */
 function spawnObstacle() {
+  const h = 40 + Math.random() * 40;
   obstacles.push({
     x: W + 40,
-    w: 30 + Math.random() * 20,
-    h: 40 + Math.random() * 30
+    y: groundY() - h,
+    w: 30,
+    h
   });
 }
-setInterval(spawnObstacle, 1400);
 
-/* ===== DRAW BACKGROUND ===== */
+/* ------------------ 碰撞 ------------------ */
+function hit(a, b) {
+  return (
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y
+  );
+}
+
+/* ------------------ 绘制背景 ------------------ */
 function drawBackground() {
-  // Sky gradient
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, "#6ec6ff");
-  g.addColorStop(1, "#cfefff");
-  ctx.fillStyle = g;
+  // 天空
+  ctx.fillStyle = "#87CEEB";
   ctx.fillRect(0, 0, W, H);
 
-  // Sun
-  ctx.fillStyle = "#ffcc33";
+  // 太阳
+  ctx.fillStyle = "#f5c542";
   ctx.beginPath();
-  ctx.arc(W * 0.8, H * 0.2, 50, 0, Math.PI * 2);
+  ctx.arc(W * 0.85, H * 0.2, 40, 0, Math.PI * 2);
   ctx.fill();
 
-  // Far dunes
-  ctx.fillStyle = "#d6b97b";
-  ctx.beginPath();
-  ctx.moveTo(0, H * 0.65);
-  ctx.quadraticCurveTo(W * 0.3, H * 0.6, W * 0.6, H * 0.65);
-  ctx.lineTo(W, H);
-  ctx.lineTo(0, H);
-  ctx.fill();
+  // 沙漠
+  ctx.fillStyle = "#c2a06b";
+  ctx.fillRect(0, groundY(), W, H);
 }
 
-/* ===== DRAW CAMEL (ANIMATED) ===== */
+/* ------------------ 绘制骆驼 ------------------ */
 function drawCamel() {
-  camel.anim += 0.25;
+  ctx.save();
+  ctx.translate(camel.x, camel.y);
 
-  const legOffset = Math.sin(camel.anim) * 8;
-  const bodyBob = Math.sin(camel.anim * 2) * 4;
+  // 身体
+  ctx.fillStyle = "#8b6b3f";
+  ctx.fillRect(0, 20, camel.w, 25);
 
-  ctx.fillStyle = "#c49a6c";
+  // 驼峰
+  ctx.fillRect(20, 0, 20, 20);
 
-  // Body
-  ctx.fillRect(camel.x, camel.y + bodyBob, camel.w, camel.h);
+  // 腿动画
+  const legOffset = Math.sin(camel.frame * 0.5) * 6;
+  ctx.fillRect(10, 45, 6, 15 + legOffset);
+  ctx.fillRect(30, 45, 6, 15 - legOffset);
+  ctx.fillRect(50, 45, 6, 15 + legOffset);
 
-  // Head
-  ctx.fillRect(camel.x + camel.w - 10, camel.y - 20 + bodyBob, 30, 20);
-
-  // Legs
-  ctx.fillRect(camel.x + 10, camel.y + camel.h, 10, 30 + legOffset);
-  ctx.fillRect(camel.x + 30, camel.y + camel.h, 10, 30 - legOffset);
-  ctx.fillRect(camel.x + 60, camel.y + camel.h, 10, 30 + legOffset);
+  ctx.restore();
 }
 
-/* ===== UPDATE ===== */
-function update() {
-  camel.vy += gravity;
+/* ------------------ 主循环 ------------------ */
+let obstacleTimer = 0;
+
+function loop() {
+  if (!running) return;
+
+  ctx.clearRect(0, 0, W, H);
+
+  drawBackground();
+
+  // 骆驼物理
+  camel.vy += camel.gravity;
   camel.y += camel.vy;
 
-  if (camel.y + camel.h >= groundY()) {
+  if (camel.y >= groundY() - camel.h) {
     camel.y = groundY() - camel.h;
     camel.vy = 0;
     camel.onGround = true;
   }
 
-  obstacles.forEach(o => o.x -= speed);
-  obstacles = obstacles.filter(o => o.x + o.w > 0);
-
-  obstacles.forEach(o => {
-    if (
-      camel.x < o.x + o.w &&
-      camel.x + camel.w > o.x &&
-      camel.y + camel.h > groundY() - o.h
-    ) {
-      pauseGame();
-    }
-  });
-
-  speed += 0.0005;
-  score++;
-}
-
-/* ===== DRAW ===== */
-function draw() {
-  drawBackground();
-
-  // Ground
-  ctx.fillStyle = "#c2a46d";
-  ctx.fillRect(0, groundY(), W, H);
-
-  // Obstacles
-  ctx.fillStyle = "#2e5f2e";
-  obstacles.forEach(o => {
-    ctx.fillRect(o.x, groundY() - o.h, o.w, o.h);
-  });
+  camel.frameTick++;
+  if (camel.frameTick > camel.frameSpeed) {
+    camel.frame++;
+    camel.frameTick = 0;
+  }
 
   drawCamel();
 
-  document.getElementById("score").innerText = `Score: ${score}`;
-}
-
-/* ===== LOOP ===== */
-function loop() {
-  if (running) {
-    update();
-    draw();
+  // 障碍
+  obstacleTimer++;
+  if (obstacleTimer > 90) {
+    spawnObstacle();
+    obstacleTimer = 0;
   }
+
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const o = obstacles[i];
+    o.x -= speed;
+
+    ctx.fillStyle = "#2f4f2f";
+    ctx.fillRect(o.x, o.y, o.w, o.h);
+
+    if (hit(camel, o)) {
+      running = false;
+      pauseMenu.classList.remove("hidden");
+    }
+
+    if (o.x + o.w < 0) obstacles.splice(i, 1);
+  }
+
+  // 分数 & 速度
+  score++;
+  speed += 0.0008;
+  scoreEl.textContent = "Score: " + score;
+
   requestAnimationFrame(loop);
 }
 
-camel.y = groundY() - camel.h;
 loop();
