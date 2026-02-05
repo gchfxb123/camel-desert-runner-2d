@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Desert Camel Runner</title>
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="ui">
+    <div id="score">Score: 0</div>
+    <button id="pauseBtn">Pause</button>
+  </div>
+
+  <div id="pauseScreen" class="hidden">
+    <h1>Paused</h1>
+    <button onclick="resumeGame()">Resume</button>
+    <button onclick="restartGame()">Restart</button>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
